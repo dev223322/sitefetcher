@@ -23,6 +23,9 @@ var ChLinks = make(chan Wlstruct, 50)
 func SPrtErr(format string, a ...interface{}) error {
 	return fmt.Errorf("Error: "+format, a...)
 }
+func SPrtInfo(format string, a ...interface{}) error {
+	return fmt.Errorf("Info: "+format, a...)
+}
 
 func PrintQueue() {
 	for {
@@ -120,12 +123,18 @@ func GetContent(wls *Wlstruct, pathdir string) error {
 				resp.Body.Close()
 			}
 			wls.SetError()
+			if err := SavedFiles.Add(wls.GetLink(), "", "", true); err != nil { // mark as error if already exist
+				SavedFiles.SetError(wls.GetLink()) // mark as error
+			}
 			return SPrtErr("utils: GetContent - http.Get - error   err=%q", err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
 			wls.SetError()
+			if err := SavedFiles.Add(wls.GetLink(), "", "", true); err != nil { // mark as error if already exist
+				SavedFiles.SetError(wls.GetLink()) // mark as error
+			}
 			return SPrtErr("utils: GetContent - getting %s: %s", wls.GetLink(), resp.Status)
 		}
 		wls.ContentType = resp.Header.Get("Content-Type")
@@ -135,7 +144,13 @@ func GetContent(wls *Wlstruct, pathdir string) error {
 			return SPrtErr("utils: GetContent - Replurl   err=%q", err)
 		}
 		wls.SetSavepath(savepath)
-		SavedFiles.Add(wls.GetLink(), wls.GetContentType(), wls.GetSavepath())
+		if !SavedFiles.IsExist(wls.GetLink()) {
+			SavedFiles.Add(wls.GetLink(), wls.GetContentType(), wls.GetSavepath(), false)
+		} else {
+			if SavedFiles.IsError(wls.GetLink()) {
+				return SPrtInfo("utils: GetContent, IsError - bad link=%q\n", wls.GetLink())
+			}
+		}
 		wls.SetNeedSave(true)
 	} //end need get content
 	if wls.IsNeedSave() {

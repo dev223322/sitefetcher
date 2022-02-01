@@ -81,7 +81,7 @@ func (wls *Wlstruct) IsContentType() bool {
 	}
 }
 func (wls *Wlstruct) IsContentTypeHTML() bool {
-	if strings.Index(wls.ContentType, "text/html;") > -1 {
+	if strings.Index(wls.ContentType, "text/html") > -1 {
 		return true
 	} else {
 		return false
