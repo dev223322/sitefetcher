@@ -98,26 +98,32 @@ func crawl() {
 
 func main() {
 	debug.SetGCPercent(3)
-	fmt.Println("pgm -level NN  url  -out PATH")
 	go utl.PrintQueue() // start print queue
 
 	var n int           // number of pending sends to worklist
 	var maxlevel uint16 // max level of links from url
 	var wklvl int
+	var t int
 	flag.IntVar(&wklvl, "level", 1, "max level of links from url")
+	flag.IntVar(&t, "t", 10, "number of threads")
 	flag.StringVar(&utl.Path, "out", "/home/sh/tmp", "path to catalog for create files")
 	flag.Parse()
 	maxlevel = uint16(wklvl)
 	// Start with the command-line arguments.
 	n++
 	startlink := flag.Arg(0)
+	if startlink == "" || t > 10 {
+		fmt.Println("pgm [-level=NN] [-out=PATH] [-t=1..10]  <url>")
+
+		return
+	}
 	var err error
 	utl.Domain, err = getdmn(startlink)
 	if err != nil {
 		log.Fatalf("Error: err=%q", err)
 	}
 	go func() { utl.ChALinks <- newwlm(startlink, 1) }()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < t; i++ {
 		go func() { crawl() }()
 	}
 	// Crawl  concurrently.

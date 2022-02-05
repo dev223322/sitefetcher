@@ -62,19 +62,45 @@ func Replurl(wkslnk *Wlstruct, pathdir string, contentType string) (string, erro
 	if len(relpath) == 0 {
 		relpath = "/index"
 	}
-	relpath = strings.Replace(relpath, ".", "_", -1)
+
 	if string(relpath[0]) != "/" {
 		relpath = "/" + relpath
 	}
-	if wkslnk.IsContentTypeHTML() {
-		if strings.Index(relpath, ".htm") > -1 {
-			retval = pathdir + relpath
+	var part1, part2 string
+
+	lastslash := strings.LastIndex(relpath, "/")
+	if lastslash == -1 {
+		if wkslnk.IsContentTypeHTML() {
+			retval = pathdir + "/index.html"
 		} else {
-			retval = pathdir + relpath + ".html"
+			retval = pathdir + relpath
 		}
 	} else {
-		retval = pathdir + relpath
+		part1 = relpath[0 : lastslash+1]
+		part1 = strings.Replace(part1, ".", "_", -1)
+		part2 = relpath[lastslash+1:]
+		if wkslnk.IsContentTypeHTML() {
+			lastpoint := strings.LastIndex(part2, ".")
+			lasthtml := strings.LastIndex(part2, ".htm")
+			l := len(part2)
+
+			switch {
+			case l > 4 && lastpoint > -1 && lastpoint == lasthtml:
+				retval = pathdir + part1 + part2
+			case l == 4 && lastpoint > -1 && lastpoint == lasthtml:
+				retval = pathdir + part1 + "/index.html"
+			case l > 1 && lastpoint == -1 && lasthtml == -1:
+				retval = pathdir + part1 + part2 + "/index.html"
+			case l == 1:
+				retval = pathdir + part1 + part2 + "index.html"
+			case l == 0:
+				retval = pathdir + part1 + "index.html"
+			}
+		} else {
+			retval = pathdir + part1 + part2
+		}
 	}
+
 	/*
 		if strings.Index(retval, "/home/sh/tmp/progress/21241.html/amp") != -1 { //dbg
 			log.Fatalln("Error: dbg")
