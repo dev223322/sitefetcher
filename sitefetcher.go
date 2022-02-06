@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/dev223322/sitefetcher/utl"
 )
@@ -18,6 +19,7 @@ func crawl() {
 	var cnt int
 	for { //main loop
 		wls := <-utl.ChLinks
+		utl.Wg.Add(1)
 		utl.Prtf("link=%q    level=%d\n", wls.Link, wls.Lvl)
 		pwls, list, err := utl.Extract(&wls)
 		if err != nil {
@@ -93,6 +95,7 @@ func crawl() {
 		utl.ChALinks <- wlm
 
 		//----------------------------------------------------
+		utl.Wg.Done()
 	} // end of main loop
 }
 
@@ -137,12 +140,25 @@ func main() {
 				utl.ChLinks <- link
 			}
 		}
+
 		for _, link := range list {
 			link.Resp = nil
 			link.Udoc = nil
 		}
 		list = nil
 	}
+	// need check for work ended
+	for {
+		if utl.ChanIsFree() {
+			utl.Wg.Wait()
+			time.Sleep(1 * time.Millisecond)
+			utl.Wg.Wait()
+			break
+		}
+		utl.Wg.Wait()
+	}
+	// checked
+	fmt.Println("\n  ---   done - job ended")
 
 }
 

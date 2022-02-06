@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"golang.org/x/net/html"
 )
@@ -19,6 +20,8 @@ var Path string
 var prtch = make(chan string, 500)
 var ChALinks = make(chan []Wlstruct, 5000000)
 var ChLinks = make(chan Wlstruct, 50)
+
+var Wg sync.WaitGroup
 
 func SPrtErr(format string, a ...interface{}) error {
 	return fmt.Errorf("Error: "+format, a...)
@@ -118,25 +121,13 @@ func GetContent(wls *Wlstruct, pathdir string) error {
 		return SPrtErr("utils: GetContent - wls.Link=%q is error\n", wls.GetLink())
 	}
 
-	var found bool
 	var resp *http.Response
 
-	if err := SavedFiles.RLlock(wls.GetLink()); err == nil { //Rlock element of map if  record present
-		found = true
-	}
-	var err error
-
-	if found {
-		var el *FileAttr
-		if el, err = SavedFiles.GetUnsafeElement(wls.GetLink()); err != nil {
-			log.Fatalf("!!! Fatal error: utils: GetContent,GetUnsafeElement- record is absent after it was- err=%q", err)
-		}
+	if el, err := SavedFiles.GetElementAndRLock(wls.GetLink()); err == nil { // if found
 		wls.SetContentType(el.ContentType)
 		wls.SetSavepath(el.SavePath)
 
-		if err := SavedFiles.RUnlock(wls.GetLink()); err != nil { //RUnlock element of map
-			log.Fatalf("!!! Fatal error: utils: GetContent - record was locked, but after is absent - err=%q\n", err)
-		}
+		SavedFiles.RUnlock()
 		if wls.GetDocaddr() != nil {
 			*(wls.GetDocaddr()) = wls.GetSavepath()
 		} else {
@@ -265,4 +256,16 @@ func Savedoc(wls Wlstruct, pathfile string, contentType string) error {
 	}
 	Prtf("*** SaveDoc - pathfile%q\n", pathfile)
 	return nil
+}
+
+func ChanIsFree() bool {
+
+	select {
+	case wls := <-ChLinks:
+		ChLinks <- wls
+		return false
+	default:
+		return true
+	}
+
 }

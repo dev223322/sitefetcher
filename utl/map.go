@@ -6,7 +6,6 @@ import (
 )
 
 type FileAttr struct {
-	Lck         *sync.RWMutex
 	ContentType string
 	SavePath    string
 	Saved       bool
@@ -18,57 +17,24 @@ type tMapSavedFiles map[string]FileAttr
 var SavedFiles = make(tMapSavedFiles)
 var sfm sync.RWMutex
 
-func (sf *tMapSavedFiles) GetUnsafeElement(mapkey string) (*FileAttr, error) {
+func (sf *tMapSavedFiles) GetElementAndRLock(mapkey string) (*FileAttr, error) {
+	sfm.RLock()
 	if el, ok := (*sf)[mapkey]; ok {
 		return &el, nil
 	} else {
+		sfm.RUnlock()
 		return nil, SPrtErr("map GetUnsafeElement: record with key=%q not exist\n", mapkey)
 	}
 }
 
-func (sf *tMapSavedFiles) RLlock(mapkey string) error {
-	sfm.Lock()
-	if el, ok := (*sf)[mapkey]; ok {
-		el.Lck.RLock()
-		sfm.Unlock()
-		return nil
-	} else {
-		sfm.Unlock()
-		return SPrtErr("map Rlock: record with key=%q not exist\n", mapkey)
-	}
+func (sf *tMapSavedFiles) RUnlock() {
+	sfm.RUnlock()
 }
-func (sf *tMapSavedFiles) RUnlock(mapkey string) error {
+func (sf *tMapSavedFiles) Lock() {
 	sfm.Lock()
-	if el, ok := (*sf)[mapkey]; ok {
-		el.Lck.RUnlock()
-		sfm.Unlock()
-		return nil
-	} else {
-		sfm.Unlock()
-		return SPrtErr("map RUnlock: record with key=%q not exist\n", mapkey)
-	}
 }
-func (sf *tMapSavedFiles) Lock(mapkey string) error {
-	sfm.Lock()
-	if el, ok := (*sf)[mapkey]; ok {
-		el.Lck.Lock()
-		sfm.Unlock()
-		return nil
-	} else {
-		sfm.Unlock()
-		return SPrtErr("map Lock: record with key=%q not exist\n", mapkey)
-	}
-}
-func (sf *tMapSavedFiles) Unlock(mapkey string) error {
-	sfm.Lock()
-	if el, ok := (*sf)[mapkey]; ok {
-		el.Lck.Unlock()
-		sfm.Unlock()
-		return nil
-	} else {
-		sfm.Unlock()
-		return SPrtErr("map Unlock: record with key=%q not exist\n", mapkey)
-	}
+func (sf *tMapSavedFiles) Unlock() {
+	sfm.Unlock()
 }
 func (sf *tMapSavedFiles) Add(mapkey string, ContentType string, SavePath string, er bool) error {
 	sfm.Lock()
@@ -76,11 +42,8 @@ func (sf *tMapSavedFiles) Add(mapkey string, ContentType string, SavePath string
 		sfm.Unlock()
 		return SPrtErr("map: record with key=%q alredy exist\n", mapkey)
 	} else {
-		var locker sync.RWMutex
-		locker.Lock()
-		fa := FileAttr{&locker, ContentType, SavePath, false, er}
+		fa := FileAttr{ContentType, SavePath, false, er}
 		(*sf)[mapkey] = fa
-		(*sf)[mapkey].Lck.Unlock()
 		sfm.Unlock()
 		return nil
 	}
@@ -99,8 +62,9 @@ func (sf *tMapSavedFiles) SetSaved(mapkey string) error {
 func (sf *tMapSavedFiles) IsSaved(mapkey string) (bool, error) {
 	sfm.RLock()
 	if el, ok := (*sf)[mapkey]; ok { //ok
+		ret := el.Saved
 		sfm.RUnlock()
-		return el.Saved, nil
+		return ret, nil
 	} else {
 		sfm.RUnlock()
 		return false, SPrtErr("map IsSaved: record with key=%q not exist\n", mapkey)
@@ -120,8 +84,9 @@ func (sf *tMapSavedFiles) SetError(mapkey string) error {
 func (sf *tMapSavedFiles) IsError(mapkey string) bool {
 	sfm.RLock()
 	if el, ok := (*sf)[mapkey]; ok { //ok
+		ret := el.Error
 		sfm.RUnlock()
-		return el.Error
+		return ret
 	} else {
 		sfm.RUnlock()
 		return false
