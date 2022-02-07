@@ -88,6 +88,11 @@ func Replurl(wkslnk *Wlstruct, pathdir string, contentType string) (string, erro
 			l := len(part2)
 
 			switch {
+			case u.RawQuery != "":
+				p1p2 := part2[:lastpoint]
+				p2p2hashs := html.EscapeString(u.RawQuery)
+				retval = pathdir + part1 + p1p2 + "___" + p2p2hashs + ".html"
+
 			case l > 4 && lastpoint > -1 && lastpoint == lasthtml:
 				retval = pathdir + part1 + part2
 			case l == 4 && lastpoint > -1 && lastpoint == lasthtml:
