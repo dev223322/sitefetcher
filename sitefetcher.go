@@ -16,10 +16,14 @@ import (
 )
 
 func crawl() {
+	defer utl.Wg.Done()
 	var cnt int
+loop:
 	for { //main loop
-		wls := <-utl.ChLinks
-		utl.Wg.Add(1)
+		wls, ok := <-utl.ChLinks
+		if !ok {
+			break loop
+		}
 		utl.Prtf("link=%q    level=%d\n", wls.Link, wls.Lvl)
 		pwls, list, err := utl.Extract(&wls)
 		if err != nil {
@@ -95,7 +99,6 @@ func crawl() {
 		utl.ChALinks <- wlm
 
 		//----------------------------------------------------
-		utl.Wg.Done()
 	} // end of main loop
 }
 
@@ -127,6 +130,7 @@ func main() {
 	}
 	go func() { utl.ChALinks <- newwlm(startlink, 1) }()
 	for i := 0; i < t; i++ {
+		utl.Wg.Add(1)
 		go func() { crawl() }()
 	}
 	// Crawl  concurrently.
@@ -148,14 +152,15 @@ func main() {
 		list = nil
 	}
 	// need check for work ended
+loop2:
 	for {
 		if utl.ChanIsFree() {
+			close(utl.ChLinks)
 			utl.Wg.Wait()
-			time.Sleep(1 * time.Millisecond)
-			utl.Wg.Wait()
-			break
+			break loop2
+		} else {
+			time.Sleep(200 * time.Millisecond)
 		}
-		utl.Wg.Wait()
 	}
 	// checked
 	fmt.Println("\n  ---   done - job ended")
